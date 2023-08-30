@@ -73,6 +73,11 @@ interface IFaultDisputeGame is IDisputeGame {
     /// @param _partOffset The offset of the data to post.
     function addLocalData(uint256 _ident, uint256 _partOffset) external;
 
+    /// @notice Resolves the subgame rooted at the given claim index.
+    /// @dev This function must be called bottom-up in the DAG
+    /// @param _claimIndex The index of the subgame root claim to resolve.
+    function resolveClaim(uint256 _claimIndex) external payable;
+
     /// @notice An L1 block hash that contains the disputed output root, fetched from the
     ///         `BlockOracle` and verified by referencing the timestamp associated with the
     ///         first L2 Output Proposal in the `L2OutputOracle` that contains the disputed
