@@ -25,7 +25,7 @@ func (s *GameSolver) CalculateNextActions(ctx context.Context, game types.Game) 
 		var action *types.Action
 		var err error
 		if uint64(claim.Depth()) == game.MaxDepth() {
-			action, err = s.calculateStep(ctx, game, claim)
+			action, err = s.calculateStep(ctx, claim)
 		} else {
 			action, err = s.calculateMove(ctx, game, claim)
 		}
@@ -41,14 +41,11 @@ func (s *GameSolver) CalculateNextActions(ctx context.Context, game types.Game) 
 	return actions, errors.Join(errs...)
 }
 
-func (s *GameSolver) calculateStep(ctx context.Context, game types.Game, claim types.Claim) (*types.Action, error) {
+func (s *GameSolver) calculateStep(ctx context.Context, claim types.Claim) (*types.Action, error) {
 	if claim.Countered {
 		return nil, nil
 	}
-	if game.AgreeWithClaimLevel(claim) {
-		return nil, nil
-	}
-	step, err := s.claimSolver.AttemptStep(ctx, claim, game.AgreeWithClaimLevel(claim))
+	step, err := s.claimSolver.AttemptStep(ctx, claim)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +60,7 @@ func (s *GameSolver) calculateStep(ctx context.Context, game types.Game, claim t
 }
 
 func (s *GameSolver) calculateMove(ctx context.Context, game types.Game, claim types.Claim) (*types.Action, error) {
-	move, err := s.claimSolver.NextMove(ctx, claim, game.AgreeWithClaimLevel(claim))
+	move, err := s.claimSolver.NextMove(ctx, claim, game)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate next move for claim index %v: %w", claim.ContractIndex, err)
 	}

@@ -10,96 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNextMove(t *testing.T) {
-	maxDepth := 4
-	builder := test.NewAlphabetClaimBuilder(t, maxDepth)
-	tests := []struct {
-		name           string
-		claim          types.Claim
-		agreeWithLevel bool
-		expectedErr    error
-		expectedMove   func(claim types.Claim, correct bool) types.Claim
-	}{
-		{
-			name:           "AgreeWithLevel_CorrectRoot",
-			claim:          builder.CreateRootClaim(true),
-			agreeWithLevel: true,
-		},
-		{
-			name:           "AgreeWithLevel_IncorrectRoot",
-			claim:          builder.CreateRootClaim(false),
-			agreeWithLevel: true,
-		},
-		{
-			name:           "AgreeWithLevel_EvenDepth",
-			claim:          builder.Seq(false).Attack(false).Get(),
-			agreeWithLevel: true,
-		},
-		{
-			name:           "AgreeWithLevel_OddDepth",
-			claim:          builder.Seq(false).Attack(false).Defend(false).Get(),
-			agreeWithLevel: true,
-		},
-		{
-			name:  "Root_CorrectValue",
-			claim: builder.CreateRootClaim(true),
-		},
-		{
-			name:         "Root_IncorrectValue",
-			claim:        builder.CreateRootClaim(false),
-			expectedMove: builder.AttackClaim,
-		},
-		{
-			name:         "NonRoot_AgreeWithParentAndClaim",
-			claim:        builder.Seq(true).Attack(true).Get(),
-			expectedMove: builder.DefendClaim,
-		},
-		{
-			name:         "NonRoot_AgreeWithParentDisagreeWithClaim",
-			claim:        builder.Seq(true).Attack(false).Get(),
-			expectedMove: builder.AttackClaim,
-		},
-		{
-			name:         "NonRoot_DisagreeWithParentAgreeWithClaim",
-			claim:        builder.Seq(false).Attack(true).Get(),
-			expectedMove: builder.DefendClaim,
-		},
-		{
-			name:         "NonRoot_DisagreeWithParentAndClaim",
-			claim:        builder.Seq(false).Attack(false).Get(),
-			expectedMove: builder.AttackClaim,
-		},
-		{
-			name:        "ErrorWhenClaimIsLeaf_Correct",
-			claim:       builder.CreateLeafClaim(4, true),
-			expectedErr: types.ErrGameDepthReached,
-		},
-		{
-			name:        "ErrorWhenClaimIsLeaf_Incorrect",
-			claim:       builder.CreateLeafClaim(6, false),
-			expectedErr: types.ErrGameDepthReached,
-		},
-	}
-	for _, test := range tests {
-		test := test
-		t.Run(test.name, func(t *testing.T) {
-			solver := newClaimSolver(maxDepth, builder.CorrectTraceProvider())
-			move, err := solver.NextMove(context.Background(), test.claim, test.agreeWithLevel)
-			if test.expectedErr == nil {
-				require.NoError(t, err)
-			} else {
-				require.ErrorIs(t, err, test.expectedErr)
-			}
-			if test.expectedMove == nil {
-				require.Nil(t, move)
-			} else {
-				expected := test.expectedMove(test.claim, true)
-				require.Equal(t, &expected, move)
-			}
-		})
-	}
-}
-
 func TestAttemptStep(t *testing.T) {
 	maxDepth := 3
 	builder := test.NewAlphabetClaimBuilder(t, maxDepth)
@@ -115,7 +25,6 @@ func TestAttemptStep(t *testing.T) {
 	tests := []struct {
 		name               string
 		claim              types.Claim
-		agreeWithLevel     bool
 		expectedErr        error
 		expectAttack       bool
 		expectPreState     []byte
@@ -176,16 +85,14 @@ func TestAttemptStep(t *testing.T) {
 			expectedErr: ErrStepNonLeafNode,
 		},
 		{
-			name:           "CannotStepAgreedNode",
-			claim:          builder.Seq(false).Attack(false).Get(),
-			agreeWithLevel: true,
-			expectedErr:    ErrStepNonLeafNode,
+			name:        "CannotStepAgreedNode",
+			claim:       builder.Seq(false).Attack(false).Get(),
+			expectedErr: ErrStepNonLeafNode,
 		},
 		{
-			name:           "CannotStepAgreedNode",
-			claim:          builder.Seq(false).Attack(false).Get(),
-			agreeWithLevel: true,
-			expectedErr:    ErrStepNonLeafNode,
+			name:        "CannotStepAgreedNode",
+			claim:       builder.Seq(false).Attack(false).Get(),
+			expectedErr: ErrStepNonLeafNode,
 		},
 	}
 
@@ -198,7 +105,7 @@ func TestAttemptStep(t *testing.T) {
 			}
 			builder = test.NewClaimBuilder(t, maxDepth, alphabetProvider)
 			alphabetSolver := newClaimSolver(maxDepth, builder.CorrectTraceProvider())
-			step, err := alphabetSolver.AttemptStep(ctx, tableTest.claim, tableTest.agreeWithLevel)
+			step, err := alphabetSolver.AttemptStep(ctx, tableTest.claim)
 			if tableTest.expectedErr == nil {
 				require.NoError(t, err)
 				require.Equal(t, tableTest.claim, step.LeafClaim)

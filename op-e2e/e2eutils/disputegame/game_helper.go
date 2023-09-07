@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-challenger/game/fault"
 	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -264,6 +265,30 @@ func (g *FaultGameHelper) StepFails(claimIdx int64, isAttack bool, stateData []b
 	errData, ok := err.(ErrWithData)
 	g.require.Truef(ok, "Error should provide ErrorData method: %v", err)
 	g.require.Equal("0xfb4e40dd", errData.ErrorData(), "Revert reason should be abi encoded ValidStep()")
+}
+
+func (g *FaultGameHelper) ResolveClaim(ctx context.Context, claimIdx int64) {
+	tx, err := g.game.ResolveClaim(g.opts, big.NewInt(claimIdx))
+	g.require.NoError(err, "ResolveClaim transaction did not send")
+	_, err = wait.ForReceiptOK(ctx, g.client, tx.Hash())
+	g.require.NoError(err, "ResolveClaim transaction was not OK")
+}
+
+func (g *FaultGameHelper) ResolveAllClaims(ctx context.Context) {
+	loader := fault.NewLoader(g.game)
+	claims, err := loader.FetchClaims(ctx)
+	g.require.NoError(err, "Failed to fetch claims")
+	subgames := make(map[int]bool)
+	for i := len(claims) - 1; i > 0; i-- {
+		subgames[claims[i].ParentContractIndex] = true
+		// Subgames containing only one node are implicitly resolved
+		// i.e. uncountered and claims at MAX_DEPTH
+		if !subgames[i] {
+			continue
+		}
+		g.ResolveClaim(ctx, int64(i))
+	}
+	g.ResolveClaim(ctx, 0)
 }
 
 func (g *FaultGameHelper) gameData(ctx context.Context) string {

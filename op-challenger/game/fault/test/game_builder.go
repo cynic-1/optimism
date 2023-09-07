@@ -11,10 +11,10 @@ type GameBuilder struct {
 	ExpectedActions []types.Action
 }
 
-func (c *ClaimBuilder) GameBuilder(agreeWithOutputRoot bool, rootCorrect bool) *GameBuilder {
+func (c *ClaimBuilder) GameBuilder(rootCorrect bool) *GameBuilder {
 	return &GameBuilder{
 		builder: c,
-		Game:    types.NewGameState(agreeWithOutputRoot, c.CreateRootClaim(rootCorrect), uint64(c.maxDepth)),
+		Game:    types.NewGameState(c.CreateRootClaim(rootCorrect), uint64(c.maxDepth)),
 	}
 }
 

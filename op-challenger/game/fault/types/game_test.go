@@ -48,7 +48,7 @@ func createTestClaims() (Claim, Claim, Claim, Claim) {
 func TestIsDuplicate(t *testing.T) {
 	// Setup the game state.
 	root, top, middle, bottom := createTestClaims()
-	g := NewGameState(false, root, testMaxDepth)
+	g := NewGameState(root, testMaxDepth)
 	require.NoError(t, g.Put(top))
 
 	// Root + Top should be duplicates
@@ -65,7 +65,7 @@ func TestIsDuplicate(t *testing.T) {
 func TestGame_Put_RootAlreadyExists(t *testing.T) {
 	// Setup the game state.
 	top, _, _, _ := createTestClaims()
-	g := NewGameState(false, top, testMaxDepth)
+	g := NewGameState(top, testMaxDepth)
 
 	// Try to put the root claim into the game state again.
 	err := g.Put(top)
@@ -77,7 +77,7 @@ func TestGame_Put_RootAlreadyExists(t *testing.T) {
 func TestGame_PutAll_RootAlreadyExists(t *testing.T) {
 	// Setup the game state.
 	root, _, _, _ := createTestClaims()
-	g := NewGameState(false, root, testMaxDepth)
+	g := NewGameState(root, testMaxDepth)
 
 	// Try to put the root claim into the game state again.
 	err := g.PutAll([]Claim{root})
@@ -88,7 +88,7 @@ func TestGame_PutAll_RootAlreadyExists(t *testing.T) {
 // instance errors when the given claim already exists in state.
 func TestGame_PutAll_AlreadyExists(t *testing.T) {
 	root, top, middle, bottom := createTestClaims()
-	g := NewGameState(false, root, testMaxDepth)
+	g := NewGameState(root, testMaxDepth)
 
 	err := g.PutAll([]Claim{top, middle})
 	require.NoError(t, err)
@@ -101,23 +101,23 @@ func TestGame_PutAll_AlreadyExists(t *testing.T) {
 func TestGame_PutAll_ParentsAndChildren(t *testing.T) {
 	// Setup the game state.
 	root, top, middle, bottom := createTestClaims()
-	g := NewGameState(false, root, testMaxDepth)
+	g := NewGameState(root, testMaxDepth)
 
 	// We should not be able to get the parent of the root claim.
-	parent, err := g.getParent(root)
+	parent, err := g.GetParent(root)
 	require.ErrorIs(t, err, ErrClaimNotFound)
 	require.Equal(t, parent, Claim{})
 
 	// Put the rest of the claims in the state.
 	err = g.PutAll([]Claim{top, middle, bottom})
 	require.NoError(t, err)
-	parent, err = g.getParent(top)
+	parent, err = g.GetParent(top)
 	require.NoError(t, err)
 	require.Equal(t, parent, root)
-	parent, err = g.getParent(middle)
+	parent, err = g.GetParent(middle)
 	require.NoError(t, err)
 	require.Equal(t, parent, top)
-	parent, err = g.getParent(bottom)
+	parent, err = g.GetParent(bottom)
 	require.NoError(t, err)
 	require.Equal(t, parent, middle)
 }
@@ -127,7 +127,7 @@ func TestGame_PutAll_ParentsAndChildren(t *testing.T) {
 func TestGame_Put_AlreadyExists(t *testing.T) {
 	// Setup the game state.
 	top, middle, _, _ := createTestClaims()
-	g := NewGameState(false, top, testMaxDepth)
+	g := NewGameState(top, testMaxDepth)
 
 	// Put the next claim into state.
 	err := g.Put(middle)
@@ -142,31 +142,31 @@ func TestGame_Put_AlreadyExists(t *testing.T) {
 func TestGame_Put_ParentsAndChildren(t *testing.T) {
 	// Setup the game state.
 	root, top, middle, bottom := createTestClaims()
-	g := NewGameState(false, root, testMaxDepth)
+	g := NewGameState(root, testMaxDepth)
 
 	// We should not be able to get the parent of the root claim.
-	parent, err := g.getParent(root)
+	parent, err := g.GetParent(root)
 	require.ErrorIs(t, err, ErrClaimNotFound)
 	require.Equal(t, parent, Claim{})
 
 	// Put + Check Top
 	err = g.Put(top)
 	require.NoError(t, err)
-	parent, err = g.getParent(top)
+	parent, err = g.GetParent(top)
 	require.NoError(t, err)
 	require.Equal(t, parent, root)
 
 	// Put + Check Top Middle
 	err = g.Put(middle)
 	require.NoError(t, err)
-	parent, err = g.getParent(middle)
+	parent, err = g.GetParent(middle)
 	require.NoError(t, err)
 	require.Equal(t, parent, top)
 
 	// Put + Check Top Bottom
 	err = g.Put(bottom)
 	require.NoError(t, err)
-	parent, err = g.getParent(bottom)
+	parent, err = g.GetParent(bottom)
 	require.NoError(t, err)
 	require.Equal(t, parent, middle)
 }
@@ -175,7 +175,7 @@ func TestGame_Put_ParentsAndChildren(t *testing.T) {
 func TestGame_ClaimPairs(t *testing.T) {
 	// Setup the game state.
 	root, top, middle, bottom := createTestClaims()
-	g := NewGameState(false, root, testMaxDepth)
+	g := NewGameState(root, testMaxDepth)
 
 	// Add top claim to the game state.
 	err := g.Put(top)
@@ -193,28 +193,4 @@ func TestGame_ClaimPairs(t *testing.T) {
 	expected := []Claim{root, top, middle, bottom}
 	claims := g.Claims()
 	require.ElementsMatch(t, expected, claims)
-}
-
-func TestAgreeWithClaimLevelDisagreeWithOutput(t *testing.T) {
-	// Setup the game state.
-	root, top, middle, bottom := createTestClaims()
-	g := NewGameState(false, root, testMaxDepth)
-	require.NoError(t, g.PutAll([]Claim{top, middle, bottom}))
-
-	require.True(t, g.AgreeWithClaimLevel(root))
-	require.False(t, g.AgreeWithClaimLevel(top))
-	require.True(t, g.AgreeWithClaimLevel(middle))
-	require.False(t, g.AgreeWithClaimLevel(bottom))
-}
-
-func TestAgreeWithClaimLevelAgreeWithOutput(t *testing.T) {
-	// Setup the game state.
-	root, top, middle, bottom := createTestClaims()
-	g := NewGameState(true, root, testMaxDepth)
-	require.NoError(t, g.PutAll([]Claim{top, middle, bottom}))
-
-	require.False(t, g.AgreeWithClaimLevel(root))
-	require.True(t, g.AgreeWithClaimLevel(top))
-	require.False(t, g.AgreeWithClaimLevel(middle))
-	require.True(t, g.AgreeWithClaimLevel(bottom))
 }

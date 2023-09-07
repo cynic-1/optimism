@@ -23,11 +23,11 @@ type Game interface {
 	// Claims returns all of the claims in the game.
 	Claims() []Claim
 
+	// GetParent returns the parent of the provided claim.
+	GetParent(claim Claim) (Claim, error)
+
 	// IsDuplicate returns true if the provided [Claim] already exists in the game state.
 	IsDuplicate(claim ClaimData) bool
-
-	// AgreeWithClaimLevel returns if the game state agrees with the provided claim level.
-	AgreeWithClaimLevel(claim Claim) bool
 
 	MaxDepth() uint64
 }
@@ -40,37 +40,23 @@ type extendedClaim struct {
 // gameState is a struct that represents the state of a dispute game.
 // The game state implements the [Game] interface.
 type gameState struct {
-	agreeWithProposedOutput bool
-	root                    ClaimData
-	claims                  map[ClaimData]*extendedClaim
-	depth                   uint64
+	root   ClaimData
+	claims map[ClaimData]*extendedClaim
+	depth  uint64
 }
 
 // NewGameState returns a new game state.
 // The provided [Claim] is used as the root node.
-func NewGameState(agreeWithProposedOutput bool, root Claim, depth uint64) *gameState {
+func NewGameState(root Claim, depth uint64) *gameState {
 	claims := make(map[ClaimData]*extendedClaim)
 	claims[root.ClaimData] = &extendedClaim{
 		self:     root,
 		children: make([]ClaimData, 0),
 	}
 	return &gameState{
-		agreeWithProposedOutput: agreeWithProposedOutput,
-		root:                    root.ClaimData,
-		claims:                  claims,
-		depth:                   depth,
-	}
-}
-
-// AgreeWithClaimLevel returns if the game state agrees with the provided claim level.
-func (g *gameState) AgreeWithClaimLevel(claim Claim) bool {
-	isOddLevel := claim.Depth()%2 == 1
-	// If we agree with the proposed output, we agree with odd levels
-	// If we disagree with the proposed output, we agree with the root claim level & even levels
-	if g.agreeWithProposedOutput {
-		return isOddLevel
-	} else {
-		return !isOddLevel
+		root:   root.ClaimData,
+		claims: claims,
+		depth:  depth,
 	}
 }
 
@@ -128,7 +114,7 @@ func (g *gameState) getChildren(c ClaimData) []ClaimData {
 	return g.claims[c].children
 }
 
-func (g *gameState) getParent(claim Claim) (Claim, error) {
+func (g *gameState) GetParent(claim Claim) (Claim, error) {
 	if claim.IsRoot() {
 		return Claim{}, ErrClaimNotFound
 	}
