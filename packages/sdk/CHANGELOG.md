@@ -1,5 +1,14 @@
 # @eth-optimism/sdk
 
+## 3.1.3
+
+### Patch Changes
+
+- [#7244](https://github.com/ethereum-optimism/optimism/pull/7244) [`679207751`](https://github.com/ethereum-optimism/optimism/commit/6792077510fd76553c179d8b8d068262cda18db6) Thanks [@nitaliano](https://github.com/nitaliano)! - Adds Sepolia & OP Sepolia support to SDK
+
+- Updated dependencies [[`2440f5e7a`](https://github.com/ethereum-optimism/optimism/commit/2440f5e7ab6577f2d2e9c8b0c78c014290dde8e7)]:
+  - @eth-optimism/contracts-bedrock@0.16.1
+
 ## 3.1.2
 
 ### Patch Changes
