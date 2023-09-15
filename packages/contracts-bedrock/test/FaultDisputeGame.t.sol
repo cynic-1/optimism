@@ -694,7 +694,7 @@ contract Resolver {
     /// @notice Auto-resolves all subgames in the game
     function run() public {
         for (uint i = gameProxy.claimDataLen()-1; i > 0; i--) {
-            (uint32 parentIndex,,,Position position,) = gameProxy.claimData(i);
+            (uint32 parentIndex,,,,) = gameProxy.claimData(i);
             subgames[parentIndex] = true;
 
             // Subgames containing only one node are implicitly resolved

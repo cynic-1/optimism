@@ -75,6 +75,9 @@ interface IFaultDisputeGame is IDisputeGame {
 
     /// @notice Resolves the subgame rooted at the given claim index.
     /// @dev This function must be called bottom-up in the DAG
+    ///      A subgame is a tree of claims that has a maximum depth of 1.
+    ///      A subgame root claims is valid if, and only if, all of its child claims are invalid.
+    ///      At the deepest level in the DAG, a claim is invalid if there's a successful step against it.
     /// @param _claimIndex The index of the subgame root claim to resolve.
     function resolveClaim(uint256 _claimIndex) external payable;
 

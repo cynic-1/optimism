@@ -180,8 +180,6 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, Semver {
         // Set the parent claim as countered. We do not need to append a new claim to the game;
         // instead, we can just set the existing parent as countered.
         parent.countered = true;
-
-        // TODO(BOND): Pay msg.sender an amount equal to the bond of the countered parent
     }
 
     /// @notice Internal move function, used by both `attack` and `defend`.
@@ -245,8 +243,6 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, Semver {
         ClaimHash claimHash = _claim.hashClaimPos(nextPosition);
         if (claims[claimHash]) revert ClaimAlreadyExists();
         claims[claimHash] = true;
-
-        // TODO(BOND): Revert if bond is undercollaterized
 
         // Create the new claim.
         claimData.push(
@@ -394,7 +390,6 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, Semver {
 
         // INVARIANT: Cannot resolve subgames twice
         // Uncontested claims are resolved implicitly unless they are the root claim
-        // TODO(BOND): Bond payoffs for implicitly resolved subgames not at MAX_DEPTH
         if (_claimIndex == 0 && subgameAtRootResolved) revert ClaimAlreadyResolved();
         if (challengeIndices.length == 0 && _claimIndex != 0) revert ClaimAlreadyResolved();
 
@@ -416,9 +411,9 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, Semver {
             }
         }
 
+        // Once a subgame is resolved, we percolate the result up the DAG so subsequent calls to
+        // resolveClaim will not need to traverse this subgame.
         parent.countered = countered;
-
-        // TODO(BOND): Distribute the parent bond to winners (i.e. uncontested left-most claims)
 
         // Resolved subgames have no entries
         delete subgames[_claimIndex];
