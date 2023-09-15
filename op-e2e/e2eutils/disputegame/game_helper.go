@@ -131,6 +131,10 @@ func (g *FaultGameHelper) getClaim(ctx context.Context, claimIdx int64) Contract
 	return claimData
 }
 
+func (g *FaultGameHelper) GetClaimUnsafe(ctx context.Context, claimIdx int64) ContractClaim {
+	return g.getClaim(ctx, claimIdx)
+}
+
 func (g *FaultGameHelper) WaitForClaimAtDepth(ctx context.Context, depth int) {
 	g.waitForClaim(
 		ctx,
@@ -267,6 +271,7 @@ func (g *FaultGameHelper) StepFails(claimIdx int64, isAttack bool, stateData []b
 	g.require.Equal("0xfb4e40dd", errData.ErrorData(), "Revert reason should be abi encoded ValidStep()")
 }
 
+// ResolveClaim resolves a single subgame
 func (g *FaultGameHelper) ResolveClaim(ctx context.Context, claimIdx int64) {
 	tx, err := g.game.ResolveClaim(g.opts, big.NewInt(claimIdx))
 	g.require.NoError(err, "ResolveClaim transaction did not send")
@@ -274,6 +279,8 @@ func (g *FaultGameHelper) ResolveClaim(ctx context.Context, claimIdx int64) {
 	g.require.NoError(err, "ResolveClaim transaction was not OK")
 }
 
+// ResolveAllClaims resolves all subgames
+// This function does not resolve the game. That's the responsibility of challengers
 func (g *FaultGameHelper) ResolveAllClaims(ctx context.Context) {
 	loader := fault.NewLoader(g.game)
 	claims, err := loader.FetchClaims(ctx)

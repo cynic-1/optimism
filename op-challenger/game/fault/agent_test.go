@@ -145,7 +145,7 @@ func (s *stubResponder) Resolve(ctx context.Context) error {
 }
 
 func (s *stubResponder) PerformAction(ctx context.Context, response types.Action) error {
-	panic("Not implemented")
+	return nil
 }
 
 type stubUpdater struct {

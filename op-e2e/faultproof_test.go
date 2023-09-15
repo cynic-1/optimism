@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/challenger"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/disputegame"
 	l2oo2 "github.com/ethereum-optimism/optimism/op-e2e/e2eutils/l2oo"
@@ -348,7 +349,6 @@ func TestCannonProposedOutputRootInvalid(t *testing.T) {
 }
 
 func TestCannonPoisonedPostState(t *testing.T) {
-	t.Skip("Known failure case")
 	InitParallel(t)
 
 	ctx := context.Background()
@@ -371,8 +371,11 @@ func TestCannonPoisonedPostState(t *testing.T) {
 	// Honest defense at "dishonest" level
 	correctTrace.Defend(ctx, 1)
 
-	// Dishonest attack at "honest" level - honest move would be to defend
+	// Dishonest attack at "honest" level - honest move would be to ignore
 	game.Attack(ctx, 2, common.Hash{0x03, 0xaa})
+
+	// Honest attack at "dishonest" level - honest move would be to ignore
+	correctTrace.Attack(ctx, 3)
 
 	// Start the honest challenger
 	game.StartChallenger(ctx, sys.RollupConfig, sys.L2GenesisCfg, l1Endpoint, l2Endpoint, "Honest",
@@ -382,27 +385,38 @@ func TestCannonPoisonedPostState(t *testing.T) {
 	)
 
 	// Start dishonest challenger that posts correct claims
-	game.StartChallenger(ctx, sys.RollupConfig, sys.L2GenesisCfg, l1Endpoint, l2Endpoint, "DishonestCorrect",
-		// Disagree with the proposed output, so agree with the root claim
-		challenger.WithAgreeProposedOutput(false),
-		challenger.WithPrivKey(sys.cfg.Secrets.Mallory),
-	)
+	// It participates in the subgame root the honest claim index 4
+	func() {
+		claimCount := int64(5)
+		depth := game.MaxDepth(ctx)
+		for {
+			game.LogGameData(ctx)
+			claimCount++
+			// Wait for the challenger to counter
+			game.WaitForClaimCount(ctx, claimCount)
 
-	// Give the challengers time to progress down the full game depth
-	depth := game.MaxDepth(ctx)
-	for i := 3; i <= int(depth); i++ {
-		game.WaitForClaimAtDepth(ctx, i)
-		game.LogGameData(ctx)
-	}
+			// Respond with our own move
+			correctTrace.Defend(ctx, claimCount-1)
+			claimCount++
+			game.WaitForClaimCount(ctx, claimCount)
 
-	// Wait for all the leaf nodes to be countered
-	// Wait for the challengers to drive the game down to the leaf node which should be countered
-	game.WaitForAllClaimsCountered(ctx)
+			// Defender moves last. If we're at max depth, then we're done
+			dishonestClaim := game.GetClaimUnsafe(ctx, claimCount-1)
+			pos := types.NewPositionFromGIndex(dishonestClaim.Position.Uint64())
+			if int64(pos.Depth()) == depth {
+				break
+			}
+		}
+	}()
+
+	// Wait for the challenger to drive the subgame at 4 to the leaf node, which should be countered
+	game.WaitForClaimAtMaxDepth(ctx, true)
 
 	// Time travel past when the game will be resolvable.
 	sys.TimeTravelClock.AdvanceTime(game.GameDuration(ctx))
 	require.NoError(t, wait.ForNextBlock(ctx, l1Client))
 
+	game.ResolveAllClaims(ctx)
 	game.WaitForGameStatus(ctx, disputegame.StatusChallengerWins)
 	game.LogGameData(ctx)
 }

@@ -41,7 +41,7 @@ func (s *claimSolver) NextMove(ctx context.Context, claim types.Claim, game type
 
 	// Before challenging this claim, first check that the move wasn't warranted.
 	// If the parent claim is on a dishonest path, then we would have moved against it anyways. So we don't move.
-	// Avoiding dishonest paths ensures that there's always a valid claim availble to support ours during step.
+	// Avoiding dishonest paths ensures that there's always a valid claim available to support ours during step.
 	if !claim.IsRoot() {
 		parent, err := game.GetParent(claim)
 		if err != nil {
