@@ -2,6 +2,7 @@ package op_e2e
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
@@ -11,6 +12,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 )
 
@@ -175,6 +177,43 @@ func TestChallengerCompleteDisputeGame(t *testing.T) {
 			game.WaitForGameStatus(ctx, test.expectedResult)
 		})
 	}
+}
+
+func TestChallengerCompleteExhaustiveDisputeGame(t *testing.T) {
+	InitParallel(t)
+
+	// TODO(inphi): DEBUGME
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stdout, log.TerminalFormat(true))))
+
+	ctx := context.Background()
+	sys, l1Client := startFaultDisputeSystem(t)
+	t.Cleanup(sys.Close)
+
+	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys.cfg.L1Deployments, l1Client)
+	game := disputeGameFactory.StartAlphabetGame(ctx, "abcdexyz")
+	require.NotNil(t, game)
+	gameDuration := game.GameDuration(ctx)
+
+	// Start honest challenger
+	game.StartChallenger(ctx, sys.NodeEndpoint("l1"), "Challenger",
+		challenger.WithAgreeProposedOutput(true),
+		challenger.WithAlphabet(disputegame.CorrectAlphabet),
+		challenger.WithPrivKey(sys.cfg.Secrets.Alice),
+	)
+
+	// Start dishonest challenger
+	correctTrace := game.CreateHonestActor(ctx, disputegame.CorrectAlphabet, 4)
+	dishonestHelper := disputegame.NewDishonestHelper(&game.FaultGameHelper, correctTrace, true)
+	dishonestHelper.ExhaustDishonestClaims(ctx)
+
+	// Wait for a claim at the maximum depth that has been countered to indicate we're ready to resolve the game
+	game.WaitForClaimAtMaxDepth(ctx, true)
+
+	sys.TimeTravelClock.AdvanceTime(gameDuration)
+	require.NoError(t, wait.ForNextBlock(ctx, l1Client))
+
+	game.ResolveAllClaims(ctx)
+	game.WaitForGameStatus(ctx, disputegame.StatusChallengerWins)
 }
 
 func TestCannonDisputeGame(t *testing.T) {

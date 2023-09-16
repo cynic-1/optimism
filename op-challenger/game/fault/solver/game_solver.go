@@ -36,6 +36,11 @@ func (s *GameSolver) CalculateNextActions(ctx context.Context, game types.Game) 
 		if action == nil {
 			continue
 		}
+		var movestr string
+		if action != nil {
+			movestr = fmt.Sprintf("type: %v. isAttack: %v. value: %x. parentIdx: %v", action.Type, action.IsAttack, action.Value, action.ParentIdx)
+		}
+		fmt.Printf("Our move against claim at index %v. isAttack: %v\n", claim.ContractIndex, movestr)
 		actions = append(actions, *action)
 	}
 	return actions, errors.Join(errs...)

@@ -2,6 +2,7 @@ package disputegame
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"testing"
@@ -244,9 +245,27 @@ func (g *FaultGameHelper) ChallengeRootClaim(ctx context.Context, performMove Mo
 	attemptStep(maxDepth)
 }
 
+func (g *FaultGameHelper) WaitForNewClaim(ctx context.Context, checkPoint int64) (int64, error) {
+	timedCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	var newClaimLen int64
+	err := wait.For(timedCtx, time.Second, func() (bool, error) {
+		actual, err := g.game.ClaimDataLen(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return false, err
+		}
+		newClaimLen = actual.Int64()
+		return actual.Cmp(big.NewInt(checkPoint)) > 0, nil
+	})
+	return newClaimLen, err
+}
+
 func (g *FaultGameHelper) Attack(ctx context.Context, claimIdx int64, claim common.Hash) {
 	tx, err := g.game.Attack(g.opts, big.NewInt(claimIdx), claim)
+	g.LogGameData(ctx)
+	g.t.Logf("Attack. claim: %v. claimIdx: %d", claim, claimIdx)
 	g.require.NoError(err, "Attack transaction did not send")
+	g.t.Logf("Attack tx: %x. claim: %v. claimIdx: %d", tx.Hash(), claim, claimIdx)
 	_, err = wait.ForReceiptOK(ctx, g.client, tx.Hash())
 	g.require.NoError(err, "Attack transaction was not OK")
 }
@@ -319,4 +338,103 @@ func (g *FaultGameHelper) gameData(ctx context.Context) string {
 
 func (g *FaultGameHelper) LogGameData(ctx context.Context) {
 	g.t.Log(g.gameData(ctx))
+}
+
+type dishonestClaim struct {
+	ParentIndex int64
+	IsAttack    bool
+	Valid       bool
+}
+type DishonestHelper struct {
+	*FaultGameHelper
+	*HonestHelper
+	claims   map[dishonestClaim]bool
+	defender bool
+}
+
+func NewDishonestHelper(g *FaultGameHelper, correctTrace *HonestHelper, defender bool) *DishonestHelper {
+	return &DishonestHelper{g, correctTrace, make(map[dishonestClaim]bool), defender}
+}
+
+func (t *DishonestHelper) Attack(ctx context.Context, claimIndex int64) {
+	c := dishonestClaim{claimIndex, true, false}
+	if t.claims[c] {
+		return
+	}
+	t.claims[c] = true
+	t.FaultGameHelper.Attack(ctx, claimIndex, common.Hash{byte(claimIndex)})
+}
+
+func (t *DishonestHelper) Defend(ctx context.Context, claimIndex int64) {
+	c := dishonestClaim{claimIndex, false, false}
+	if t.claims[c] {
+		return
+	}
+	t.claims[c] = true
+	t.FaultGameHelper.Defend(ctx, claimIndex, common.Hash{byte(claimIndex)})
+}
+
+func (t *DishonestHelper) AttackCorrect(ctx context.Context, claimIndex int64) {
+	c := dishonestClaim{claimIndex, true, true}
+	if t.claims[c] {
+		return
+	}
+	t.claims[c] = true
+	t.HonestHelper.Attack(ctx, claimIndex)
+}
+
+func (t *DishonestHelper) DefendCorrect(ctx context.Context, claimIndex int64) {
+	c := dishonestClaim{claimIndex, false, true}
+	if t.claims[c] {
+		return
+	}
+	t.claims[c] = true
+	t.HonestHelper.Defend(ctx, claimIndex)
+}
+
+// ExhaustDishonestClaims makes all possible significant moves (mod honest challenger's) in a game.
+// It is very inefficient and should NOT be used on games with large depths
+func (d *DishonestHelper) ExhaustDishonestClaims(ctx context.Context) {
+	depth := d.MaxDepth(ctx)
+
+	move := func(claimIndex int64, claimData ContractClaim) {
+		// dishonest level, valid attack
+		// dishonest level, valid defense
+		// honest level, invalid attack
+		// honest level, invalid defense
+
+		pos := types.NewPositionFromGIndex(claimData.Position.Uint64())
+		if int64(pos.Depth()) == depth {
+			return
+		}
+
+		d.FaultGameHelper.t.Logf("Dishonest Move at %d", claimIndex)
+		d.LogGameData(ctx) // TODO: DEBUGME
+		agree := d.defender == (pos.Depth()%2 == 0)
+		if !agree {
+			d.AttackCorrect(ctx, claimIndex)
+			d.DefendCorrect(ctx, claimIndex)
+		}
+		d.Attack(ctx, claimIndex)
+		if claimIndex != 0 {
+			d.Defend(ctx, claimIndex)
+		}
+	}
+
+	var numClaimsSeen int64
+	for {
+		newCount, err := d.WaitForNewClaim(ctx, numClaimsSeen)
+		if errors.Is(err, context.DeadlineExceeded) {
+			// we assume that the honest challenger has stopped responding
+			// There's nothing to respond to.
+			break
+		}
+		d.FaultGameHelper.require.NoError(err)
+
+		for i := numClaimsSeen; i < newCount; i++ {
+			claimData := d.getClaim(ctx, numClaimsSeen)
+			move(numClaimsSeen, claimData)
+			numClaimsSeen++
+		}
+	}
 }
