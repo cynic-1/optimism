@@ -11,8 +11,9 @@ import (
 )
 
 var (
-	ErrStepNonLeafNode = errors.New("cannot step on non-leaf claims")
-	ErrStepAgreedClaim = errors.New("cannot step on claims we agree with")
+	ErrStepNonLeafNode       = errors.New("cannot step on non-leaf claims")
+	ErrStepAgreedClaim       = errors.New("cannot step on claims we agree with")
+	ErrStepIgnoreInvalidPath = errors.New("cannot step on claims that dispute invalid paths")
 )
 
 // claimSolver uses a [TraceProvider] to determine the moves to make in a dispute game.
@@ -73,10 +74,24 @@ type StepData struct {
 
 // AttemptStep determines what step should occur for a given leaf claim.
 // An error will be returned if the claim is not at the max depth.
-func (s *claimSolver) AttemptStep(ctx context.Context, claim types.Claim) (StepData, error) {
+func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim types.Claim) (StepData, error) {
 	if claim.Depth() != s.gameDepth {
 		return StepData{}, ErrStepNonLeafNode
 	}
+
+	// Step only on claims that dispute a valid path
+	parent, err := game.GetParent(claim)
+	if err != nil {
+		return StepData{}, err
+	}
+	parentValid, err := s.agreeWithClaimPath(ctx, game, parent)
+	if err != nil {
+		return StepData{}, err
+	}
+	if !parentValid {
+		return StepData{}, ErrStepIgnoreInvalidPath
+	}
+
 	claimCorrect, err := s.agreeWithClaim(ctx, claim.ClaimData)
 	if err != nil {
 		return StepData{}, err

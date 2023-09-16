@@ -68,6 +68,12 @@ func WithAlphabet(alphabet string) Option {
 	}
 }
 
+func WithPollInterval(pollInterval time.Duration) Option {
+	return func(c *config.Config) {
+		c.PollInterval = pollInterval
+	}
+}
+
 func WithCannon(
 	t *testing.T,
 	rollupCfg *rollup.Config,

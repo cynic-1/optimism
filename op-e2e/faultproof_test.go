@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/challenger"
@@ -199,6 +200,8 @@ func TestChallengerCompleteExhaustiveDisputeGame(t *testing.T) {
 		challenger.WithAgreeProposedOutput(true),
 		challenger.WithAlphabet(disputegame.CorrectAlphabet),
 		challenger.WithPrivKey(sys.cfg.Secrets.Alice),
+		// Ensures the challenger responds to all claims before test timeout
+		challenger.WithPollInterval(time.Millisecond*400),
 	)
 
 	// Start dishonest challenger

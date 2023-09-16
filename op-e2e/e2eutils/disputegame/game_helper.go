@@ -394,6 +394,8 @@ func (t *DishonestHelper) DefendCorrect(ctx context.Context, claimIndex int64) {
 
 // ExhaustDishonestClaims makes all possible significant moves (mod honest challenger's) in a game.
 // It is very inefficient and should NOT be used on games with large depths
+// However, it's still limited in that it does not generate valid claims at honest levels in an attempt to
+// trick challengers into supporting poisoned paths.
 func (d *DishonestHelper) ExhaustDishonestClaims(ctx context.Context) {
 	depth := d.MaxDepth(ctx)
 

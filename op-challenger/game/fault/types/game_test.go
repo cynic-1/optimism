@@ -24,14 +24,18 @@ func createTestClaims() (Claim, Claim, Claim, Claim) {
 			Value:    common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000364"),
 			Position: NewPosition(1, 0),
 		},
-		Parent: root.ClaimData,
+		Parent:              root.ClaimData,
+		ContractIndex:       1,
+		ParentContractIndex: 0,
 	}
 	middle := Claim{
 		ClaimData: ClaimData{
 			Value:    common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000578"),
 			Position: NewPosition(2, 2),
 		},
-		Parent: top.ClaimData,
+		Parent:              top.ClaimData,
+		ContractIndex:       2,
+		ParentContractIndex: 1,
 	}
 
 	bottom := Claim{
@@ -39,7 +43,9 @@ func createTestClaims() (Claim, Claim, Claim, Claim) {
 			Value:    common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000465"),
 			Position: NewPosition(3, 4),
 		},
-		Parent: middle.ClaimData,
+		Parent:              middle.ClaimData,
+		ContractIndex:       3,
+		ParentContractIndex: 2,
 	}
 
 	return root, top, middle, bottom
@@ -52,12 +58,12 @@ func TestIsDuplicate(t *testing.T) {
 	require.NoError(t, g.Put(top))
 
 	// Root + Top should be duplicates
-	require.True(t, g.IsDuplicate(root.ClaimData))
-	require.True(t, g.IsDuplicate(top.ClaimData))
+	require.True(t, g.IsDuplicate(root))
+	require.True(t, g.IsDuplicate(top))
 
 	// Middle + Bottom should not be a duplicate
-	require.False(t, g.IsDuplicate(middle.ClaimData))
-	require.False(t, g.IsDuplicate(bottom.ClaimData))
+	require.False(t, g.IsDuplicate(middle))
+	require.False(t, g.IsDuplicate(bottom))
 }
 
 // TestGame_Put_RootAlreadyExists tests the [Game.Put] method using a [gameState]
