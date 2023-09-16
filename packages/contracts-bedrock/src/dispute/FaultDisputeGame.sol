@@ -238,9 +238,9 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, Semver {
         // Construct the next clock with the new duration and the current block timestamp.
         Clock nextClock = LibClock.wrap(nextDuration, Timestamp.wrap(uint64(block.timestamp)));
 
-        // INVARIANT: A claim may only exist at a given position once. Multiple claims may exist
-        //            at the same position, however they must have different values.
-        ClaimHash claimHash = _claim.hashClaimPos(nextPosition);
+        // INVARIANT: There cannot be multiple identical claims with identical moves on the same challengeIndex. Multiple claims
+        //            at the same position may dispute the same challengeIndex. However, the must have different values.
+        ClaimHash claimHash = _claim.hashClaimPos(nextPosition, _challengeIndex);
         if (claims[claimHash]) revert ClaimAlreadyExists();
         claims[claimHash] = true;
 

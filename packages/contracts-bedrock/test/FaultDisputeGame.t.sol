@@ -303,6 +303,19 @@ contract FaultDisputeGame_Test is FaultDisputeGame_Init {
         gameProxy.attack(0, claim);
     }
 
+    /// @dev Static unit test asserting that identical claims at the same position can be made in different subgames.
+    function test_move_duplicateClaimsDifferentSubgames_succeeds() public {
+        Claim claimA = Claim.wrap(bytes32(uint256(5)));
+        Claim claimB = Claim.wrap(bytes32(uint256(6)));
+
+        // Make the first move. This should succeed.
+        gameProxy.attack(0, claimA);
+        gameProxy.attack(0, claimB);
+
+        gameProxy.attack(1, claimB);
+        gameProxy.attack(2, claimA);
+    }
+
     /// @dev Static unit test for the correctness of an opening attack.
     function test_move_simpleAttack_succeeds() public {
         // Warp ahead 5 seconds.
