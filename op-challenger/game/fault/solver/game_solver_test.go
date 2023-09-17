@@ -73,15 +73,14 @@ func TestCalculateNextActions(t *testing.T) {
 
 				// Dishonest actor counters their own claims to set up a situation with an invalid prestate
 				// The honest actor should ignore path created by the dishonest actor, only supporting its own attack on the root claim
-				builder.Seq().ExpectAttack(). // This expected action is the winning move.
-								Attack(maliciousStateHash).
-								Defend(maliciousStateHash).
-								Attack(maliciousStateHash).
-								Attack(maliciousStateHash).ExpectStepAttack() // The honest move here is to step on invalid claims
-
-				// The attempt to step against our malicious leaf node will fail because the pre-state won't match our
-				// malicious state hash. However, it is the very first expected action, attacking the root claim with
-				// the correct hash that wins the game since it will be the left-most uncountered claim.
+				honestMove := builder.Seq().AttackCorrect() // This expected action is the winning move.
+				dishonestMove := honestMove.Attack(maliciousStateHash)
+				// The expected action by the honest actor
+				dishonestMove.ExpectAttack()
+				// The honest actor will ignore this poisoned path
+				dishonestMove.
+					Defend(maliciousStateHash).
+					Attack(maliciousStateHash)
 			},
 		},
 	}

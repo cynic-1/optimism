@@ -74,6 +74,7 @@ type StepData struct {
 
 // AttemptStep determines what step should occur for a given leaf claim.
 // An error will be returned if the claim is not at the max depth.
+// Returns ErrStepIgnoreInvalidPath if the claim disputes an invalid path
 func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim types.Claim) (StepData, error) {
 	if claim.Depth() != s.gameDepth {
 		return StepData{}, ErrStepNonLeafNode

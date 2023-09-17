@@ -51,6 +51,9 @@ func (s *GameSolver) calculateStep(ctx context.Context, game types.Game, claim t
 		return nil, nil
 	}
 	step, err := s.claimSolver.AttemptStep(ctx, game, claim)
+	if err == ErrStepIgnoreInvalidPath {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
