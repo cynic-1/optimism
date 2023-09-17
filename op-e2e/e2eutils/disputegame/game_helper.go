@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/require"
 )
@@ -190,6 +191,43 @@ func (g *FaultGameHelper) WaitForGameStatus(ctx context.Context, expected Status
 		return expected == Status(status), nil
 	})
 	g.require.NoErrorf(err, "wait for game status. Game state: \n%v", g.gameData(ctx))
+}
+
+func (g *FaultGameHelper) WaitForInactivity(ctx context.Context, numInactiveBlocks int) {
+	g.t.Logf("Waiting for game %v to have no activity for %v blocks", g.addr, numInactiveBlocks)
+	headCh := make(chan *gethtypes.Header, 100)
+	headSub, err := g.client.SubscribeNewHead(ctx, headCh)
+	g.require.NoError(err)
+	defer headSub.Unsubscribe()
+
+	var lastActiveBlock uint64
+	for {
+		select {
+		case head := <-headCh:
+			if lastActiveBlock == 0 {
+				lastActiveBlock = head.Number.Uint64()
+				continue
+			} else if lastActiveBlock+uint64(numInactiveBlocks) > head.Number.Uint64() {
+				return
+			}
+			block, err := g.client.BlockByNumber(ctx, head.Number)
+			g.require.NoError(err)
+			numActions := 0
+			for _, tx := range block.Transactions() {
+				if tx.To().Hex() == g.addr.Hex() {
+					numActions++
+				}
+			}
+			if numActions != 0 {
+				g.t.Logf("Game %v has %v actions in block %d. Resetting inactivity timeout", g.addr, numActions, block.NumberU64())
+				lastActiveBlock = head.Number.Uint64()
+			}
+		case err := <-headSub.Err():
+			g.require.NoError(err)
+		case <-ctx.Done():
+			g.require.Fail("Context canceled", ctx.Err())
+		}
+	}
 }
 
 // Mover is a function that either attacks or defends the claim at parentClaimIdx

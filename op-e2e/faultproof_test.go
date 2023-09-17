@@ -212,8 +212,8 @@ func TestChallengerCompleteExhaustiveDisputeGame(t *testing.T) {
 	// Wait for a claim at the maximum depth that has been countered to indicate we're ready to resolve the game
 	game.WaitForClaimAtMaxDepth(ctx, true)
 
-	// TODO: instead wait until there have been zero updates to the FDG for some time.
-	// The challenger may need to counter multiple claims at the max depth.
+	// Wait for 4 blocks of no challenger response. The challenger may still be stepping on invalid claims at max depth
+	game.WaitForInactivity(ctx, 4)
 
 	sys.TimeTravelClock.AdvanceTime(gameDuration)
 	require.NoError(t, wait.ForNextBlock(ctx, l1Client))
