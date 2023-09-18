@@ -36,6 +36,7 @@ func (s *GameSolver) CalculateNextActions(ctx context.Context, game types.Game) 
 		if action == nil {
 			continue
 		}
+		// TODO: DEBUGME
 		var movestr string
 		if action != nil {
 			movestr = fmt.Sprintf("type: %v. isAttack: %v. value: %x. parentIdx: %v", action.Type, action.IsAttack, action.Value, action.ParentIdx)
@@ -48,6 +49,9 @@ func (s *GameSolver) CalculateNextActions(ctx context.Context, game types.Game) 
 
 func (s *GameSolver) calculateStep(ctx context.Context, game types.Game, claim types.Claim) (*types.Action, error) {
 	if claim.Countered {
+		return nil, nil
+	}
+	if game.AgreeWithClaimLevel(claim) {
 		return nil, nil
 	}
 	step, err := s.claimSolver.AttemptStep(ctx, game, claim)
@@ -68,6 +72,9 @@ func (s *GameSolver) calculateStep(ctx context.Context, game types.Game, claim t
 }
 
 func (s *GameSolver) calculateMove(ctx context.Context, game types.Game, claim types.Claim) (*types.Action, error) {
+	if game.AgreeWithClaimLevel(claim) {
+		return nil, nil
+	}
 	move, err := s.claimSolver.NextMove(ctx, claim, game)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate next move for claim index %v: %w", claim.ContractIndex, err)

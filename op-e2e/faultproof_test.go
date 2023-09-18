@@ -183,43 +183,62 @@ func TestChallengerCompleteDisputeGame(t *testing.T) {
 func TestChallengerCompleteExhaustiveDisputeGame(t *testing.T) {
 	InitParallel(t)
 
-	// TODO(inphi): DEBUGME
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stdout, log.TerminalFormat(true))))
+	testCase := func(t *testing.T, isRootCorrect bool) {
+		// TODO(inphi): DEBUGME
+		log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, log.StreamHandler(os.Stdout, log.TerminalFormat(true))))
 
-	ctx := context.Background()
-	sys, l1Client := startFaultDisputeSystem(t)
-	t.Cleanup(sys.Close)
+		ctx := context.Background()
+		sys, l1Client := startFaultDisputeSystem(t)
+		t.Cleanup(sys.Close)
 
-	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys.cfg.L1Deployments, l1Client)
-	game := disputeGameFactory.StartAlphabetGame(ctx, "abcdexyz")
-	require.NotNil(t, game)
-	gameDuration := game.GameDuration(ctx)
+		disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys.cfg.L1Deployments, l1Client)
+		rootClaimedAlphabet := disputegame.CorrectAlphabet
+		if !isRootCorrect {
+			rootClaimedAlphabet = "abcdexyz"
+		}
+		game := disputeGameFactory.StartAlphabetGame(ctx, rootClaimedAlphabet)
+		require.NotNil(t, game)
+		gameDuration := game.GameDuration(ctx)
 
-	// Start honest challenger
-	game.StartChallenger(ctx, sys.NodeEndpoint("l1"), "Challenger",
-		challenger.WithAgreeProposedOutput(true),
-		challenger.WithAlphabet(disputegame.CorrectAlphabet),
-		challenger.WithPrivKey(sys.cfg.Secrets.Alice),
-		// Ensures the challenger responds to all claims before test timeout
-		challenger.WithPollInterval(time.Millisecond*400),
-	)
+		// Start honest challenger
+		game.StartChallenger(ctx, sys.NodeEndpoint("l1"), "Challenger",
+			challenger.WithAgreeProposedOutput(!isRootCorrect),
+			challenger.WithAlphabet(disputegame.CorrectAlphabet),
+			challenger.WithPrivKey(sys.cfg.Secrets.Alice),
+			// Ensures the challenger responds to all claims before test timeout
+			challenger.WithPollInterval(time.Millisecond*400),
+		)
 
-	// Start dishonest challenger
-	correctTrace := game.CreateHonestActor(ctx, disputegame.CorrectAlphabet, 4)
-	dishonestHelper := disputegame.NewDishonestHelper(&game.FaultGameHelper, correctTrace, true)
-	dishonestHelper.ExhaustDishonestClaims(ctx)
+		// Start dishonest challenger
+		correctTrace := game.CreateHonestActor(ctx, disputegame.CorrectAlphabet, 4)
+		dishonestHelper := disputegame.NewDishonestHelper(&game.FaultGameHelper, correctTrace, !isRootCorrect)
+		dishonestHelper.ExhaustDishonestClaims(ctx)
 
-	// Wait for a claim at the maximum depth that has been countered to indicate we're ready to resolve the game
-	game.WaitForClaimAtMaxDepth(ctx, true)
+		// Wait until we've reached max depth before checking for inactivity
+		game.WaitForClaimAtDepth(ctx, int(game.MaxDepth(ctx)))
 
-	// Wait for 4 blocks of no challenger response. The challenger may still be stepping on invalid claims at max depth
-	game.WaitForInactivity(ctx, 4)
+		// Wait for 4 blocks of no challenger responses. The challenger may still be stepping on invalid claims at max depth
+		game.WaitForInactivity(ctx, 4)
 
-	sys.TimeTravelClock.AdvanceTime(gameDuration)
-	require.NoError(t, wait.ForNextBlock(ctx, l1Client))
+		sys.TimeTravelClock.AdvanceTime(gameDuration)
+		require.NoError(t, wait.ForNextBlock(ctx, l1Client))
 
-	game.ResolveAllClaims(ctx)
-	game.WaitForGameStatus(ctx, disputegame.StatusChallengerWins)
+		game.ResolveAllClaims(ctx)
+		expectedStatus := disputegame.StatusChallengerWins
+		if isRootCorrect {
+			expectedStatus = disputegame.StatusDefenderWins
+		}
+		game.WaitForGameStatus(ctx, expectedStatus)
+	}
+
+	t.Run("RootCorrect", func(t *testing.T) {
+		InitParallel(t)
+		testCase(t, true)
+	})
+	t.Run("RootIncorrect", func(t *testing.T) {
+		InitParallel(t)
+		testCase(t, false)
+	})
 }
 
 func TestCannonDisputeGame(t *testing.T) {

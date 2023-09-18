@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/test"
 	faulttest "github.com/ethereum-optimism/optimism/op-challenger/game/fault/test"
 	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -13,7 +12,7 @@ import (
 
 func TestAttemptStep(t *testing.T) {
 	maxDepth := 3
-	claimBuilder := test.NewAlphabetClaimBuilder(t, maxDepth)
+	claimBuilder := faulttest.NewAlphabetClaimBuilder(t, maxDepth)
 
 	// Last accessible leaf is the second last trace index
 	// The root node is used for the last trace index and can only be attacked.
@@ -21,14 +20,14 @@ func TestAttemptStep(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		name               string
-		expectedErr        error
-		expectAttack       bool
-		expectPreState     []byte
-		expectProofData    []byte
-		expectedOracleData *types.PreimageOracleData
-		rootClaimCorrect   bool
-		setupGame          func(builder *faulttest.GameBuilder)
+		name                string
+		agreeWithOutputRoot bool
+		expectedErr         error
+		expectAttack        bool
+		expectPreState      []byte
+		expectProofData     []byte
+		expectedOracleData  *types.PreimageOracleData
+		setupGame           func(builder *faulttest.GameBuilder)
 	}{
 		{
 			name:               "AttackFirstTraceIndex",
@@ -42,7 +41,6 @@ func TestAttemptStep(t *testing.T) {
 					AttackCorrect().
 					Attack(common.Hash{0xbb})
 			},
-			rootClaimCorrect: true,
 		},
 		{
 			name:               "DefendFirstTraceIndex",
@@ -56,7 +54,6 @@ func TestAttemptStep(t *testing.T) {
 					AttackCorrect().
 					AttackCorrect()
 			},
-			rootClaimCorrect: true,
 		},
 		{
 			name: "AttackMiddleTraceIndex",
@@ -71,7 +68,6 @@ func TestAttemptStep(t *testing.T) {
 					DefendCorrect().
 					Attack(common.Hash{0xaa})
 			},
-			rootClaimCorrect: true,
 		},
 		{
 			name: "DefendMiddleTraceIndex",
@@ -86,7 +82,6 @@ func TestAttemptStep(t *testing.T) {
 					DefendCorrect().
 					AttackCorrect()
 			},
-			rootClaimCorrect: true,
 		},
 		{
 			name:               "AttackLastTraceIndex",
@@ -100,7 +95,6 @@ func TestAttemptStep(t *testing.T) {
 					DefendCorrect().
 					Defend(common.Hash{0xaa})
 			},
-			rootClaimCorrect: true,
 		},
 		{
 			name:               "DefendLastTraceIndex",
@@ -114,14 +108,14 @@ func TestAttemptStep(t *testing.T) {
 					DefendCorrect().
 					DefendCorrect()
 			},
-			rootClaimCorrect: true,
 		},
 		{
 			name: "CannotStepNonLeaf",
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().AttackCorrect().AttackCorrect()
 			},
-			expectedErr: ErrStepNonLeafNode,
+			expectedErr:         ErrStepNonLeafNode,
+			agreeWithOutputRoot: true,
 		},
 		{
 			name: "CannotStepAgreedNode",
@@ -131,7 +125,8 @@ func TestAttemptStep(t *testing.T) {
 					Attack(common.Hash{0xaa}).
 					AttackCorrect()
 			},
-			expectedErr: ErrStepIgnoreInvalidPath,
+			expectedErr:         ErrStepIgnoreInvalidPath,
+			agreeWithOutputRoot: true,
 		},
 		{
 			name: "CannotStepInvalidPath",
@@ -141,7 +136,8 @@ func TestAttemptStep(t *testing.T) {
 					Attack(common.Hash{0xbb}).
 					Attack(common.Hash{0xcc})
 			},
-			expectedErr: ErrStepIgnoreInvalidPath,
+			expectedErr:         ErrStepIgnoreInvalidPath,
+			agreeWithOutputRoot: true,
 		},
 		{
 			name:               "CannotStepNearlyValidPath",
@@ -155,14 +151,15 @@ func TestAttemptStep(t *testing.T) {
 					DefendCorrect().
 					DefendCorrect()
 			},
-			expectedErr: ErrStepIgnoreInvalidPath,
+			expectedErr:         ErrStepIgnoreInvalidPath,
+			agreeWithOutputRoot: true,
 		},
 	}
 
 	for _, tableTest := range tests {
 		tableTest := tableTest
 		t.Run(tableTest.name, func(t *testing.T) {
-			builder := claimBuilder.GameBuilder(tableTest.rootClaimCorrect)
+			builder := claimBuilder.GameBuilder(tableTest.agreeWithOutputRoot, !tableTest.agreeWithOutputRoot)
 			tableTest.setupGame(builder)
 			alphabetSolver := newClaimSolver(maxDepth, claimBuilder.CorrectTraceProvider())
 			game := builder.Game

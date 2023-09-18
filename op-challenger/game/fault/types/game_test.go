@@ -54,7 +54,7 @@ func createTestClaims() (Claim, Claim, Claim, Claim) {
 func TestIsDuplicate(t *testing.T) {
 	// Setup the game state.
 	root, top, middle, bottom := createTestClaims()
-	g := NewGameState(root, testMaxDepth)
+	g := NewGameState(false, root, testMaxDepth)
 	require.NoError(t, g.Put(top))
 
 	// Root + Top should be duplicates
@@ -71,7 +71,7 @@ func TestIsDuplicate(t *testing.T) {
 func TestGame_Put_RootAlreadyExists(t *testing.T) {
 	// Setup the game state.
 	top, _, _, _ := createTestClaims()
-	g := NewGameState(top, testMaxDepth)
+	g := NewGameState(false, top, testMaxDepth)
 
 	// Try to put the root claim into the game state again.
 	err := g.Put(top)
@@ -83,7 +83,7 @@ func TestGame_Put_RootAlreadyExists(t *testing.T) {
 func TestGame_PutAll_RootAlreadyExists(t *testing.T) {
 	// Setup the game state.
 	root, _, _, _ := createTestClaims()
-	g := NewGameState(root, testMaxDepth)
+	g := NewGameState(false, root, testMaxDepth)
 
 	// Try to put the root claim into the game state again.
 	err := g.PutAll([]Claim{root})
@@ -94,7 +94,7 @@ func TestGame_PutAll_RootAlreadyExists(t *testing.T) {
 // instance errors when the given claim already exists in state.
 func TestGame_PutAll_AlreadyExists(t *testing.T) {
 	root, top, middle, bottom := createTestClaims()
-	g := NewGameState(root, testMaxDepth)
+	g := NewGameState(false, root, testMaxDepth)
 
 	err := g.PutAll([]Claim{top, middle})
 	require.NoError(t, err)
@@ -107,7 +107,7 @@ func TestGame_PutAll_AlreadyExists(t *testing.T) {
 func TestGame_PutAll_ParentsAndChildren(t *testing.T) {
 	// Setup the game state.
 	root, top, middle, bottom := createTestClaims()
-	g := NewGameState(root, testMaxDepth)
+	g := NewGameState(false, root, testMaxDepth)
 
 	// We should not be able to get the parent of the root claim.
 	parent, err := g.GetParent(root)
@@ -133,7 +133,7 @@ func TestGame_PutAll_ParentsAndChildren(t *testing.T) {
 func TestGame_Put_AlreadyExists(t *testing.T) {
 	// Setup the game state.
 	top, middle, _, _ := createTestClaims()
-	g := NewGameState(top, testMaxDepth)
+	g := NewGameState(false, top, testMaxDepth)
 
 	// Put the next claim into state.
 	err := g.Put(middle)
@@ -148,7 +148,7 @@ func TestGame_Put_AlreadyExists(t *testing.T) {
 func TestGame_Put_ParentsAndChildren(t *testing.T) {
 	// Setup the game state.
 	root, top, middle, bottom := createTestClaims()
-	g := NewGameState(root, testMaxDepth)
+	g := NewGameState(false, root, testMaxDepth)
 
 	// We should not be able to get the parent of the root claim.
 	parent, err := g.GetParent(root)
@@ -181,7 +181,7 @@ func TestGame_Put_ParentsAndChildren(t *testing.T) {
 func TestGame_ClaimPairs(t *testing.T) {
 	// Setup the game state.
 	root, top, middle, bottom := createTestClaims()
-	g := NewGameState(root, testMaxDepth)
+	g := NewGameState(false, root, testMaxDepth)
 
 	// Add top claim to the game state.
 	err := g.Put(top)

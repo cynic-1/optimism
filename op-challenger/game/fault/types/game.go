@@ -30,6 +30,9 @@ type Game interface {
 	// referencing the same parent claim
 	IsDuplicate(claim Claim) bool
 
+	// AgreeWithClaimLevel returns if the game state agrees with the provided claim level.
+	AgreeWithClaimLevel(claim Claim) bool
+
 	MaxDepth() uint64
 }
 
@@ -46,14 +49,15 @@ type extendedClaim struct {
 // gameState is a struct that represents the state of a dispute game.
 // The game state implements the [Game] interface.
 type gameState struct {
-	root   claimEntry
-	claims map[claimEntry]*extendedClaim
-	depth  uint64
+	agreeWithProposedOutput bool
+	root                    claimEntry
+	claims                  map[claimEntry]*extendedClaim
+	depth                   uint64
 }
 
 // NewGameState returns a new game state.
 // The provided [Claim] is used as the root node.
-func NewGameState(root Claim, depth uint64) *gameState {
+func NewGameState(agreeWithProposedOutput bool, root Claim, depth uint64) *gameState {
 	claims := make(map[claimEntry]*extendedClaim)
 	rootClaimEntry := makeClaimEntry(root)
 	claims[rootClaimEntry] = &extendedClaim{
@@ -61,9 +65,22 @@ func NewGameState(root Claim, depth uint64) *gameState {
 		children: make([]claimEntry, 0),
 	}
 	return &gameState{
-		root:   rootClaimEntry,
-		claims: claims,
-		depth:  depth,
+		agreeWithProposedOutput: agreeWithProposedOutput,
+		root:                    rootClaimEntry,
+		claims:                  claims,
+		depth:                   depth,
+	}
+}
+
+// AgreeWithClaimLevel returns if the game state agrees with the provided claim level.
+func (g *gameState) AgreeWithClaimLevel(claim Claim) bool {
+	isOddLevel := claim.Depth()%2 == 1
+	// If we agree with the proposed output, we agree with odd levels
+	// If we disagree with the proposed output, we agree with the root claim level & even levels
+	if g.agreeWithProposedOutput {
+		return isOddLevel
+	} else {
+		return !isOddLevel
 	}
 }
 

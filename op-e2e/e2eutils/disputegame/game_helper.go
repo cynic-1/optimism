@@ -366,8 +366,8 @@ func (g *FaultGameHelper) gameData(ctx context.Context) string {
 		g.require.NoErrorf(err, "Fetch claim %v", i)
 
 		pos := types.NewPositionFromGIndex(claim.Position.Uint64())
-		info = info + fmt.Sprintf("%v - Position: %v, Depth: %v, IndexAtDepth: %v Trace Index: %v, Value: %v, Countered: %v\n",
-			i, claim.Position.Int64(), pos.Depth(), pos.IndexAtDepth(), pos.TraceIndex(maxDepth), common.Hash(claim.Claim).Hex(), claim.Countered)
+		info = info + fmt.Sprintf("%v - Position: %v, Depth: %v, IndexAtDepth: %v Trace Index: %v, Value: %v, Countered: %v, ParentIndex: %v\n",
+			i, claim.Position.Int64(), pos.Depth(), pos.IndexAtDepth(), pos.TraceIndex(maxDepth), common.Hash(claim.Claim).Hex(), claim.Countered, claim.ParentIndex)
 	}
 	status, err := g.game.Status(opts)
 	g.require.NoError(err, "Load game status")
@@ -432,14 +432,14 @@ func (t *DishonestHelper) DefendCorrect(ctx context.Context, claimIndex int64) {
 
 // ExhaustDishonestClaims makes all possible significant moves (mod honest challenger's) in a game.
 // It is very inefficient and should NOT be used on games with large depths
-// However, it's still limited in that it does not generate valid claims at honest levels in an attempt to
-// trick challengers into supporting poisoned paths.
 func (d *DishonestHelper) ExhaustDishonestClaims(ctx context.Context) {
 	depth := d.MaxDepth(ctx)
 
 	move := func(claimIndex int64, claimData ContractClaim) {
 		// dishonest level, valid attack
+		// dishonest level, invalid attack
 		// dishonest level, valid defense
+		// dishonest level, invalid defense
 		// honest level, invalid attack
 		// honest level, invalid defense
 
@@ -448,12 +448,14 @@ func (d *DishonestHelper) ExhaustDishonestClaims(ctx context.Context) {
 			return
 		}
 
-		d.FaultGameHelper.t.Logf("Dishonest Move at %d", claimIndex)
-		d.LogGameData(ctx) // TODO: DEBUGME
-		agree := d.defender == (pos.Depth()%2 == 0)
-		if !agree {
+		d.LogGameData(ctx)
+		d.FaultGameHelper.t.Logf("Dishonest moves against claimIndex %d", claimIndex)
+		agreeWithLevel := d.defender == (pos.Depth()%2 == 0)
+		if !agreeWithLevel {
 			d.AttackCorrect(ctx, claimIndex)
-			d.DefendCorrect(ctx, claimIndex)
+			if claimIndex != 0 {
+				d.DefendCorrect(ctx, claimIndex)
+			}
 		}
 		d.Attack(ctx, claimIndex)
 		if claimIndex != 0 {

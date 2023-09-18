@@ -15,25 +15,42 @@ func TestCalculateNextActions(t *testing.T) {
 	claimBuilder := faulttest.NewAlphabetClaimBuilder(t, maxDepth)
 
 	tests := []struct {
-		name             string
-		rootClaimCorrect bool
-		setupGame        func(builder *faulttest.GameBuilder)
+		name                string
+		agreeWithOutputRoot bool
+		rootClaimCorrect    bool
+		setupGame           func(builder *faulttest.GameBuilder)
 	}{
 		{
-			name: "AttackRootClaim",
+			name:                "AttackRootClaim",
+			agreeWithOutputRoot: true,
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().ExpectAttack()
 			},
 		},
 		{
-			// Note: The fault dispute game contract should prevent a correct root claim from actually being posted
-			// But for completeness, test we ignore it so we don't get sucked into playing an unwinnable game.
-			name:             "DoNotAttackCorrectRootClaim",
-			rootClaimCorrect: true,
-			setupGame:        func(builder *faulttest.GameBuilder) {},
+			name:                "DoNotAttackRootClaimWhenDisagreeWithOutputRoot",
+			agreeWithOutputRoot: false,
+			setupGame:           func(builder *faulttest.GameBuilder) {},
 		},
 		{
-			name: "DoNotPerformDuplicateMoves",
+			// Note: The fault dispute game contract should prevent a correct root claim from actually being posted
+			// But for completeness, test we ignore it so we don't get sucked into playing an unwinnable game.
+			name:                "DoNotAttackCorrectRootClaim_AgreeWithOutputRoot",
+			agreeWithOutputRoot: true,
+			rootClaimCorrect:    true,
+			setupGame:           func(builder *faulttest.GameBuilder) {},
+		},
+		{
+			// Note: The fault dispute game contract should prevent a correct root claim from actually being posted
+			// But for completeness, test we ignore it so we don't get sucked into playing an unwinnable game.
+			name:                "DoNotAttackCorrectRootClaim_DisagreeWithOutputRoot",
+			agreeWithOutputRoot: false,
+			rootClaimCorrect:    true,
+			setupGame:           func(builder *faulttest.GameBuilder) {},
+		},
+		{
+			name:                "DoNotPerformDuplicateMoves",
+			agreeWithOutputRoot: true,
 			setupGame: func(builder *faulttest.GameBuilder) {
 				// Expected move has already been made.
 				builder.Seq().AttackCorrect()
@@ -41,7 +58,8 @@ func TestCalculateNextActions(t *testing.T) {
 		},
 
 		{
-			name: "RespondToAllClaimsAtDisagreeingLevel",
+			name:                "RespondToAllClaimsAtDisagreeingLevel",
+			agreeWithOutputRoot: true,
 			setupGame: func(builder *faulttest.GameBuilder) {
 				honestClaim := builder.Seq().AttackCorrect()
 				honestClaim.AttackCorrect().ExpectDefend()
@@ -54,7 +72,8 @@ func TestCalculateNextActions(t *testing.T) {
 		},
 
 		{
-			name: "StepAtMaxDepth",
+			name:                "StepAtMaxDepth",
+			agreeWithOutputRoot: true,
 			setupGame: func(builder *faulttest.GameBuilder) {
 				lastHonestClaim := builder.Seq().
 					AttackCorrect().
@@ -66,7 +85,8 @@ func TestCalculateNextActions(t *testing.T) {
 		},
 
 		{
-			name: "PoisonedPreState",
+			name:                "PoisonedPreState",
+			agreeWithOutputRoot: true,
 			setupGame: func(builder *faulttest.GameBuilder) {
 				// A claim hash that has no pre-image
 				maliciousStateHash := common.Hash{0x01, 0xaa}
@@ -88,7 +108,7 @@ func TestCalculateNextActions(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			builder := claimBuilder.GameBuilder(test.rootClaimCorrect)
+			builder := claimBuilder.GameBuilder(test.agreeWithOutputRoot, test.rootClaimCorrect)
 			test.setupGame(builder)
 			game := builder.Game
 			for i, claim := range game.Claims() {
